@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
 use crate::error::HvResult;
 use crate::percpu::PerCpu;
 use bit_field::BitField;

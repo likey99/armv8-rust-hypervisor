@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
 use super::exception::arch_handle_exit;
 use crate::consts::{HV_HEADER_PTR, PER_CPU_BOOT_SIZE, PER_CPU_SIZE};
 use crate::device::uart::{UART_BASE_PHYS, UART_BASE_VIRT};
