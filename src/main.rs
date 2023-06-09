@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_macros)]
 #![no_std] // 禁用标准库链接
 #![no_main]
 // 不使用main入口，使用自己定义实际入口_start，因为我们还没有初始化堆栈指针
@@ -23,6 +26,7 @@ mod logging;
 #[cfg(target_arch = "aarch64")]
 #[path = "arch/aarch64/mod.rs"]
 mod arch;
+mod cell;
 mod config;
 mod consts;
 mod device;
@@ -31,12 +35,18 @@ mod hypercall;
 mod memory;
 mod panic;
 mod percpu;
+
 use crate::percpu::this_cpu_data;
 use config::HvSystemConfig;
-use core::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 use error::HvResult;
 use header::HvHeader;
 use percpu::PerCpu;
+
+use core::sync::atomic::{AtomicI32, AtomicU32, Ordering};
+
+static INITED_CPUS: AtomicU32 = AtomicU32::new(0);
+static INIT_EARLY_OK: AtomicU32 = AtomicU32::new(0);
+static INIT_LATE_OK: AtomicU32 = AtomicU32::new(0);
 static ERROR_NUM: AtomicI32 = AtomicI32::new(0);
 
 fn has_err() -> bool {
@@ -90,7 +100,14 @@ fn primary_init_early() -> HvResult {
 
     Ok(())
 }
-fn main(cpu_data: &mut PerCpu) -> HvResult {
+
+fn primary_init_late() {
+    info!("Primary CPU init late...");
+    // Do nothing...
+    INIT_LATE_OK.store(1, Ordering::Release);
+}
+
+fn main(cpu_data: &mut PerCpu, linux_sp: usize) -> HvResult {
     println!("Hello");
     println!(
         "cpuid{} vaddr{:#x?} phyid{} &cpu_data{:#x?}",
@@ -110,9 +127,14 @@ fn main(cpu_data: &mut PerCpu) -> HvResult {
     if is_primary {
         primary_init_early()?;
     }
+
+    // cpu_data.init(linux_sp, cell::root_cell())?;
+    cpu_data.init(linux_sp)?;
+    println!("CPU {} init OK.", cpu_data.id);
+
     //memory::init_hv_page_table()?;
     cpu_data.activate_vmm()
 }
-extern "C" fn entry(cpu_data: &mut PerCpu) -> () {
-    if let Err(_e) = main(cpu_data) {}
+extern "C" fn entry(cpu_data: &mut PerCpu, linux_sp: usize) -> () {
+    if let Err(_e) = main(cpu_data, linux_sp) {}
 }

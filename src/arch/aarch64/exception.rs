@@ -1,8 +1,12 @@
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+#![allow(unused_must_use)]
 use super::entry::vmreturn;
 use crate::header::{HvHeaderStuff, HEADER_STUFF};
 use crate::hypercall::HyperCall;
 use crate::percpu::PerCpu;
-use crate::percpu::{get_cpu_data, this_cpu_data, GeneralRegisters};
+use crate::percpu::{get_cpu_data, this_cpu_data};
+use super::context::GeneralRegisters;
 use aarch64_cpu::{asm, registers::*};
 use tock_registers::interfaces::*;
 #[allow(dead_code)]
@@ -22,7 +26,7 @@ pub mod PsciFnId {
     pub const PSCI_AFFINITY_INFO_32: u64 = 0x84000004;
     pub const PSCI_AFFINITY_INFO_64: u64 = 0xc4000004;
 }
-
+#[allow(non_camel_case_types)]
 pub enum trap_return {
     TRAP_HANDLED = 1,
     TRAP_UNHANDLED = 0,

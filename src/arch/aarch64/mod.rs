@@ -1,3 +1,4 @@
 pub mod entry;
 pub mod exception;
-//mod vcpu;
+pub mod vcpu;
+pub mod context;
