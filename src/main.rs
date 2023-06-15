@@ -91,7 +91,6 @@ fn primary_init_early() -> HvResult {
     Ok(())
 }
 fn main(cpu_data: &mut PerCpu) -> HvResult {
-    println!("Hello");
     println!(
         "cpuid{} vaddr{:#x?} phyid{} &cpu_data{:#x?}",
         cpu_data.id,
