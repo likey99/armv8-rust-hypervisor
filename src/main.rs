@@ -64,7 +64,7 @@ fn primary_init_early() -> HvResult {
 
     let system_config = HvSystemConfig::get();
     let revision = system_config.revision;
-    println!(
+    info!(
         "\n\
         Initializing hypervisor...\n\
         config_signature = {:?}\n\
@@ -87,12 +87,12 @@ fn primary_init_early() -> HvResult {
     memory::init_heap();
     system_config.check()?;
     info!("Hypervisor header: {:#x?}", HvHeader::get());
-    debug!("System config: {:#x?}", system_config);
+    info!("System config: {:#x?}", system_config);
 
     Ok(())
 }
 fn main(cpu_data: &mut PerCpu) -> HvResult {
-    println!(
+    info!(
         "cpuid{} vaddr{:#x?} phyid{} &cpu_data{:#x?}",
         cpu_data.id,
         cpu_data.self_vaddr,
@@ -102,7 +102,7 @@ fn main(cpu_data: &mut PerCpu) -> HvResult {
     let is_primary = cpu_data.id == 0;
     let online_cpus = HvHeader::get().online_cpus;
     wait_for(|| PerCpu::entered_cpus() < online_cpus)?;
-    println!(
+    info!(
         "{} CPU {} entered.",
         if is_primary { "Primary" } else { "Secondary" },
         cpu_data.id

@@ -3,6 +3,7 @@ use aarch64_cpu::registers::MPIDR_EL1;
 //use crate::arch::vcpu::Vcpu;
 use crate::arch::entry::{shutdown_el2, virt2phys_el2, vmreturn};
 use crate::consts::{PER_CPU_ARRAY_PTR, PER_CPU_SIZE};
+use crate::device::gicv3::gicv3_cpu_shutdown;
 use crate::error::HvResult;
 use crate::header::HvHeader;
 use crate::header::{HvHeaderStuff, HEADER_STUFF};
@@ -54,21 +55,20 @@ impl PerCpu {
         ACTIVATED_CPUS.load(Ordering::Acquire)
     }
     pub fn activate_vmm(&mut self) -> HvResult {
-        info!("activating cpu{}", self.id);
+        info!("activating cpu {}", self.id);
         ACTIVATED_CPUS.fetch_add(1, Ordering::SeqCst);
         HCR_EL2.modify(
             HCR_EL2::RW::EL1IsAarch64
                 + HCR_EL2::TSC::EnableTrapSmcToEl2
                 + HCR_EL2::IMO::SET
-                + HCR_EL2::FMO::SET, //+ HCR_EL2::IMO::SET
-                                     //+ HCR_EL2::FMO::SET,
+                + HCR_EL2::FMO::SET,
         );
         self.return_linux()?;
         unreachable!()
     }
     pub fn deactivate_vmm(&mut self, ret_code: usize) -> HvResult {
         ACTIVATED_CPUS.fetch_sub(1, Ordering::SeqCst);
-        info!("Disabling cpu{}", self.id);
+        info!("Disabling cpu {}", self.id);
         self.arch_shutdown_self();
         Ok(())
     }
@@ -80,8 +80,14 @@ impl PerCpu {
     }
     /*should be in vcpu*/
     pub fn arch_shutdown_self(&mut self) -> HvResult {
+        /*irqchip reset*/
+        gicv3_cpu_shutdown();
         /* Free the guest */
-
+        HCR_EL2.modify(
+                HCR_EL2::TSC::DisableTrapSmcToEl2
+                + HCR_EL2::IMO::CLEAR
+                + HCR_EL2::FMO::CLEAR,
+        );
         /* Remove stage-2 mappings */
 
         /* TLB flush needs the cell's VMID */
