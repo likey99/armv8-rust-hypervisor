@@ -31,6 +31,7 @@ mod hypercall;
 mod memory;
 mod panic;
 mod percpu;
+use crate::arch::sysreg::{read_sysreg, write_sysreg};
 use crate::percpu::this_cpu_data;
 use config::HvSystemConfig;
 use core::sync::atomic::{AtomicI32, AtomicU32, Ordering};
@@ -39,7 +40,7 @@ use error::HvResult;
 use header::HvHeader;
 use percpu::PerCpu;
 static ERROR_NUM: AtomicI32 = AtomicI32::new(0);
-
+static INIT_EARLY_OK: AtomicU32 = AtomicU32::new(0);
 fn has_err() -> bool {
     ERROR_NUM.load(Ordering::Acquire) != 0
 }
@@ -88,11 +89,11 @@ fn primary_init_early() -> HvResult {
     system_config.check()?;
     info!("Hypervisor header: {:#x?}", HvHeader::get());
     info!("System config: {:#x?}", system_config);
-
+    INIT_EARLY_OK.store(1, Ordering::Release);
     Ok(())
 }
 fn main(cpu_data: &mut PerCpu) -> HvResult {
-    info!(
+    print!(
         "cpuid{} vaddr{:#x?} phyid{} &cpu_data{:#x?}",
         cpu_data.id,
         cpu_data.self_vaddr,
@@ -102,15 +103,22 @@ fn main(cpu_data: &mut PerCpu) -> HvResult {
     let is_primary = cpu_data.id == 0;
     let online_cpus = HvHeader::get().online_cpus;
     wait_for(|| PerCpu::entered_cpus() < online_cpus)?;
-    info!(
+    print!(
         "{} CPU {} entered.",
         if is_primary { "Primary" } else { "Secondary" },
         cpu_data.id
     );
     if is_primary {
         primary_init_early()?;
+    } else {
+        wait_for_counter(&INIT_EARLY_OK, 1)?
     }
-    gicv3_cpu_init();
+    unsafe {
+        let ctlr = read_sysreg!(icc_ctlr_el1);
+        let pmr = read_sysreg!(icc_pmr_el1);
+        let ich_hcr = read_sysreg!(ich_hcr_el2);
+        debug!("ctlr: {:#x?}, pmr:{:#x?},ich_hcr{:#x?}", ctlr, pmr, ich_hcr);
+    }
     //memory::init_hv_page_table()?;
     cpu_data.activate_vmm()
 }
