@@ -1,100 +1,195 @@
-# armv8-baremetal-demo-rust
+# RVM1.5 arm移植
 
 使用rust写的armv8 hypervisor，Porting from 
 https://github.com/rcore-os/RVM1.5
 
-## ~/.cargo/config
+## 0. qemu启动arm64虚拟机
+### 0.0 宿主机安装依赖包
 ```shell
-[build]
-target = "aarch64-unknown-none"
-
-[target.aarch64-unknown-linux-gnu]
-linker = "aarch64-linux-gnu-gcc"
-rustflags = [
-    "-C", "link-arg=-nostartfiles -Tlinker.ld",
-]
-
-[target.aarch64-unknown-none]
-linker = "aarch64-none-elf-gcc"
+sudo apt-get update
+sudo apt-get install qemu
+sudo apt-get install qemu-system-arm
 ```
-其中需要安装linker：`aarch64-none-elf-` 地址：https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-aarch64-none-elf.tar.xz?rev=9d9808a2d2194b1283d6a74b40d46ada&hash=4E429A41C958483C9DB8ED84B051D010F86BA624
-
-安装rust toolchain：`rustup install nightly && rustup default nightly && rustup target add aarch64-unknown-none (optional, we use json config)`
-
-`apt install gdb-multiarch`
-
-## 编译
+### 0.1 qemu启动arm64虚拟机
+根据 `jailhouse/configs/arm64/qemu-arm64.cell` 的配置，虚拟机需有16核和1G内存。
 ```shell
+qemu-system-aarch64 \
+	-m 1G -cpu cortex-a57 \
+	-smp 16 \
+	-machine virt,gic-version=3,virtualization=on -nographic \
+	-pflash flash0.img -pflash flash1.img \
+	-drive if=none,file=ubuntu-18.04-server-cloudimg-arm64.img,id=hd0 \
+	-drive file=user-data.img,format=raw,id=cloud \
+	-device virtio-blk-device,drive=hd0 \
+	-net user,id=net,hostfwd=tcp::30022-:22 -net nic \
+	-serial mon:stdio
+```
+
+## 1. 编译运行jailhouse
+
+### 1.0 虚拟机安装依赖包
+
+```shell
+sudo sed -i "s/http:\/\/archive.ubuntu.com/http:\/\/mirrors.tuna.tsinghua.edu.cn/g" /etc/apt/sources.list
+sudo apt-get update
+sudo apt-get install build-essential python3-mako
+```
+
+### 1.1 编译jailhouse
+
+```shell
+git clone https://github.com/siemens/jailhouse.git
+cd jailhouse
+# 删掉 ./configs/arm64/dts/ 暂时没用
+rm -rf ./configs/arm64/dts/
+sudo make ARCH=arm64
+sudo make ARCH=arm64 install
+```
+
+### 1.2 jailhouse enable
+
+```shell
+sudo insmod ./driver/jailhouse.ko
+sudo chown $(whoami) /dev/jailhouse
+sudo ./tools/jailhouse enable ./configs/arm64/qemu-arm64.cell
+```
+
+运行成功：
+
+```
+Initializing Jailhouse hypervisor v0.12 on CPU 6
+Code location: 0x0000ffffc0200800
+Page pool usage after early setup: mem 87/992, remap 0/131072
+Initializing processors:
+ CPU 6... OK
+ CPU 13... OK
+ CPU 4... OK
+ CPU 15... OK
+ CPU 8... OK
+ CPU 11... OK
+ CPU 3... OK
+ CPU 0... OK
+ CPU 9... OK
+ CPU 7... OK
+ CPU 12... OK
+ CPU 5... OK
+ CPU 1... OK
+ CPU 10... OK
+ CPU 2... OK
+ CPU 14... OK
+Initializing unit: irqchip
+Initializing unit: ARM SMMU v3
+Initializing unit: ARM SMMU
+Initializing unit: PVU IOMMU
+Initializing unit: PCI
+Adding virtual PCI device 00:00.0 to cell "qemu-arm64"
+Adding virtual PCI device 00:01.0 to cell "qemu-arm64"
+Page pool usage after late setup: mem 144/992, remap 528/131072
+Activating hypervisor
+```
+
+### 1.3 jailhouse disable
+
+```shell
+sudo ./tools/jailhouse disable
+sudo rmmod jailhouse
+```
+
+## 2 编译运行armRVM
+
+```shell
+# in host
 make
+scp -P 30022 -r rvmarm.bin ubuntu@localhost:/home/ubuntu
+scp -P 30022 -r rvmarm.patch ubuntu@localhost:/home/ubuntu
+
+# in guest
+sudo mkdir -p /lib/firmware
+sudo ln -sf ~/rvmarm.bin /lib/firmware
+
+# 给jailhouse打补丁
+patch -f -p1 < ../rvmarm.patch
 ```
 
-## Qemu
+打完patch后的运行结果：
+
+```
+patching file Kbuild
+patching file configs/Makefile
+patching file driver/main.c
+patching file gen-config.sh
+patching file hypervisor/arch/x86/include/asm/jailhouse_header.h
+patching file hypervisor/include/jailhouse/header.h
+patching file include/jailhouse/cell-config.h
+patching file pyjailhouse/sysfs_parser.py
+patching file tools/jailhouse-config-create
+patching file tools/root-cell-config.c.tmpl
+```
+
+继续执行
+
 ```shell
-make start
+sudo make ARCH=arm64
+sudo update-grub
+sudo reboot
 ```
-OR
+
+## 3.调试armRVM
+
+### 3.调试armRVM
+
 ```shell
-qemu-system-aarch64 \
-    -M virt \
-    -m 1024M \
-    -cpu cortex-a53 \
-    -nographic \
-    -kernel target/aarch64-unknown-linux-gnu/debug/armv8-baremetal-demo-rust
+sudo apt-get install gdb-multiarch
 ```
-## Qemu调试
+
+在qemu启动参数中加入-s -S，qemu会在1234端口打开一个gdbserver，在启动时等待gdb进行连接，为了调试方便，先启用一个核
+
 ```shell
-qemu-system-aarch64 \
-    -M virt \
-    -m 1024M \
-    -cpu cortex-a53 \
-    -nographic \
-    -machine virtualization=on \ 
-    #-machine secure=on \
-    -kernel target/aarch64-unknown-linux-gnu/debug/armv8-baremetal-demo-rust \
-    -S -s
+qemu-system-aarch64	-m 1G -cpu cortex-a57 -smp 1 -machine virt,gic-version=3,virtualization=on -nographic -pflash flash0.img -pflash flash1.img -drive if=none,file=ubuntu-18.04-server-cloudimg-arm64.img,id=hd0 -drive file=user-data.img,format=raw,id=cloud -device virtio-blk-device,drive=hd0 -net user,id=net,hostfwd=tcp::30022-:22 -net nic -serial mon:stdio -s -S
 ```
-然后使用
 
-`gdb-multiarch target/aarch64-unknown-linux-gnu/debug/armv8-baremetal-demo-rust `
+#### 启动gdb
 
-进入gdb 输入：`target remote :1234` 即开始调试
-> PS: -machine virtualization=on开启虚拟化，则启用EL2，-machine secure=on，则启用EL3。我们只需要从EL2启动即可。
-然后使用aarch64-linux-gnu-gdb -x debug.gdb。qemu默认从EL1启动virt
-
-参考：
-1. https://stackoverflow.com/questions/42824706/qemu-system-aarch64-entering-el1-when-emulating-a53-power-up
-2. https://stackoverflow.com/questions/31787617/what-is-the-current-execution-mode-exception-level-etc
-3. https://github.com/cirosantilli/linux-kernel-module-cheat/tree/35684b1b7e0a04a68987056cb15abd97e3d2f0cc#arm-exception-level
-
-## Type 1.5 启动
-
-1. 下载并制作ubuntu镜像，在qemu中启动
 ```shell
-make image
+gdb-multiarch
+target remote:1234
+set arch aarch64
 ```
 
-2. 在qemu中启动制作好的虚拟机镜像
+然后输入`c`启动qemu
+
+#### gdb跟踪jailhouse.ko
+
+获取driver的段地址
+
 ```shell
-make qemu
+cd /sys/module/jailhouse/sections
+cat .text
+cat .data
+cat .bss
 ```
 
+将driver的信息传给gdb，在enter_hypervisor处打断点
 
-## 编译GDB for aarch64（未成功）
-1. 下载gdb source: https://ftp.gnu.org/gnu/gdb/gdb-13.1.tar.gz
-2. tar -xzvf gdb-13.1.tar.gz
-3. mkdir build 
-4. cd $_
-5. ../configure --prefix=$PWD --target=aarch64-linux-gnu
-PS: host填写自己电脑里交叉编译器的前缀，然后configure会自动寻找该前缀的编译器
-6. make -j$(nproc) [CFALGS=-static CXXFLAGS=-static]
+```gdb
+add-symbol-file ../guest/rvmarm/driver/jailhouse.ko 0xffff000001167000 -s .data 0xffff00000116d0c0 -s .bss 0xffff00000116da80
+b enter_hypervisor
+```
 
-PS: --target指定要调试的程序的架构 --host指定运行gdb程序的架构
+此时可以正常调试driver
 
-参考：
-http://ruer.fun/2021/04/20/GDB-%E7%BC%96%E8%AF%91%E6%96%B9%E6%B3%95-2021/
-## 编译qemu（可用）
-1. download qemu7.2.source
-2. tar 解压
-3. mkdir build %% cd build
-4. ../qemu-7.2.0/configure --enable-kvm --enable-slirp --enable-debug --target-list=aarch64-softmmu,x86_64-softmmu
-5. make -j2
+#### gdb调试rust代码
+
+在main.rs的primary_init_early处打断点
+
+```
+add-symbol-file target/aarch64/debug/rvmarm
+b primary_init_early
+```
+
+此时可以进入main函数之后调试rust代码
+
+本项目的相关文档在
+https://github.com/syswonder/report
+
+
