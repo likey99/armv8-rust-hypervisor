@@ -19,12 +19,33 @@ replace-with = 'ustc'
 [source.ustc]
 registry = "git://mirrors.ustc.edu.cn/crates.io-index"
 ```
-### qemu模拟器安装
+### qemu模拟器编译
 ```sh
-sudo apt-get update
-sudo apt-get install qemu
-sudo apt-get install qemu-system-arm
+sudo apt install autoconf automake autotools-dev curl libmpc-dev libmpfr-dev libgmp-dev \
+              gawk build-essential bison flex texinfo gperf libtool patchutils bc \
+              zlib1g-dev libexpat-dev pkg-config  libglib2.0-dev libpixman-1-dev git tmux python3 ninja-build  # 安装编译所需的依赖包
+wget https://download.qemu.org/qemu-7.0.0.tar.xz  # 下载源码
+tar xvJf qemu-7.0.0.tar.xz   # 解压
+cd qemu-7.0.0
+./configure   #生成设置文件
+make -j$(nproc)   #编译
+qemu-system-aarch64 --version   #查看版本
 ```
+qemu版本>7.2需要额外配置，否则在启动时可能出现以下问题
+```
+network backend user is not compiled into this binary
+```
+需要在编译前进行以下设置：
+```sh
+sudo apt install libslirp-dev 
+../configure --enable-slirp
+```
+编译完成后可以```sudo make install```将 Qemu 安装到 ```/usr/local/bin``` 目录下,
+也可以编辑``` ~/.bashrc``` 文件（如果使用的是默认的 bash 终端），在文件的末尾加入：
+```
+export PATH=$PATH:/path/to/qemu-7.0.0/build
+```
+
 ### 启动qemu
 ```sh
 mkdir qemu-test    # 新建一个文件夹用来测试
