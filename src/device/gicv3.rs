@@ -178,7 +178,11 @@ pub fn gicv3_handle_irq_el1() {
     if let Some(irq_id) = pending_irq() {
         if (irq_id < 16) {
             trace!("sgi get {}", irq_id);
+            if irq_id != 0 {
+                info!("sgi get {}", irq_id);
+            }
         }
+
         if irq_id == SGI_HV_ID as usize {
             info!("hv sgi got {}", irq_id);
             loop {}

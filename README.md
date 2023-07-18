@@ -80,7 +80,21 @@ jailhouse disable  # 关闭虚拟化
 
 
 ### 调试
-参考文档仓库
+可以使用vscode进行可视化调试，在原有qemu命令末尾加上```-s -S```
+```sh
+qemu-system-aarch64 \
+-drive file=./rootfs.qcow2,discard=unmap,if=none,id=disk,format=qcow2 \
+-device virtio-blk-device,drive=disk \
+-m 1G -serial mon:stdio  \
+-kernel Image \
+-append "root=/dev/vda mem=768M"  \
+-cpu cortex-a57 -smp 4 -nographic -machine virt,gic-version=3,virtualization=on \
+-device virtio-serial-device -device virtconsole,chardev=con \
+-chardev vc,id=con  \
+-net nic \
+-net user,hostfwd=tcp::2333-:22 -s -S
+```
+先启动qemu，然后在vscode的调试界面运行gdb-multiarch
 
 本项目的相关文档在
 https://github.com/syswonder/report
