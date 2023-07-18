@@ -3,193 +3,63 @@
 使用rust写的armv8 hypervisor，Porting from 
 https://github.com/rcore-os/RVM1.5
 
-## 0. qemu启动arm64虚拟机
-### 0.0 宿主机安装依赖包
-```shell
+## 环境配置
+### 安装rust
+首先安装 Rust 版本管理器 rustup 和 Rust 包管理器 cargo，为了在国内加速访问，可以设置使用中科大的镜像服务器。
+```sh
+export RUSTUP_DIST_SERVER=https://mirrors.ustc.edu.cn/rust-static
+export RUSTUP_UPDATE_ROOT=https://mirrors.ustc.edu.cn/rust-static/rustup
+curl https://sh.rustup.rs -sSf | sh  
+```
+最好把 Rust 包管理器 cargo 镜像地址 crates.io 也替换成中国科学技术大学的镜像服务器，来加速三方库的下载。 打开或新建 ~/.cargo/config 文件，并把内容修改为：
+```sh
+[source.crates-io]
+registry = "https://github.com/rust-lang/crates.io-index"
+replace-with = 'ustc'
+[source.ustc]
+registry = "git://mirrors.ustc.edu.cn/crates.io-index"
+```
+### qemu模拟器安装
+```sh
 sudo apt-get update
 sudo apt-get install qemu
 sudo apt-get install qemu-system-arm
 ```
-### 0.1 qemu启动arm64虚拟机
-根据 `jailhouse/configs/arm64/qemu-arm64.cell` 的配置，虚拟机需有16核和1G内存。
-```shell
-qemu-system-aarch64 \
-	-m 1G -cpu cortex-a57 \
-	-smp 16 \
-	-machine virt,gic-version=3,virtualization=on -nographic \
-	-pflash flash0.img -pflash flash1.img \
-	-drive if=none,file=ubuntu-18.04-server-cloudimg-arm64.img,id=hd0 \
-	-drive file=user-data.img,format=raw,id=cloud \
-	-device virtio-blk-device,drive=hd0 \
-	-net user,id=net,hostfwd=tcp::30022-:22 -net nic \
-	-serial mon:stdio
+### 启动qemu
+```sh
+mkdir qemu-test    # 新建一个文件夹用来测试
+cp -r test-img/* qemu-test   #将所需的文件传入测试文件夹
+cd qemu-test
+cd host
+./test.sh    #启动qemu
 ```
-
-## 1. 编译运行jailhouse
-
-### 1.0 虚拟机安装依赖包
-
-```shell
-sudo sed -i "s/http:\/\/archive.ubuntu.com/http:\/\/mirrors.tuna.tsinghua.edu.cn/g" /etc/apt/sources.list
-sudo apt-get update
-sudo apt-get install build-essential python3-mako
+linux默认用户密码为root/root
+### 编译sysHyper
+在host执行
+```sh
+make     #编译得到hypervisor镜像rvmarm.bin
+make scp   #将得到的rvmarm.bin文件传入qemu上运行的linux
 ```
-
-### 1.1 编译jailhouse
-
-```shell
-git clone https://github.com/siemens/jailhouse.git
-cd jailhouse
-# 删掉 ./configs/arm64/dts/ 暂时没用
-rm -rf ./configs/arm64/dts/
-sudo make ARCH=arm64
-sudo make ARCH=arm64 install
+### 运行sysHyper
+将必要的文件传入guest linux：
+```sh
+scp -P 2333 -r qemu-test/guest/* root@localhost:~/
 ```
-
-### 1.2 jailhouse enable
-
-```shell
-sudo insmod ./driver/jailhouse.ko
-sudo chown $(whoami) /dev/jailhouse
-sudo ./tools/jailhouse enable ./configs/arm64/qemu-arm64.cell
+在guest linux中
+```sh
+./setup.sh  #设置文件路径
+./enable.sh   #运行sysHyper，开启虚拟化
+cat /proc/cpuinfo   #查看当前linux cpuinfo
+jailhouse cell create configs/qemu-arm64-gic-demo.cell  #新建一个cell，将cpu 3 移出root cell
+cat /proc/cpuinfo   #查看当前linux cpuinfo，cpu3被shutdown了
+jailhouse disable  # 关闭虚拟化
 ```
+### output
+应该可以看到hypervisor运行打印的一些信息
 
-运行成功：
 
-```
-Initializing Jailhouse hypervisor v0.12 on CPU 6
-Code location: 0x0000ffffc0200800
-Page pool usage after early setup: mem 87/992, remap 0/131072
-Initializing processors:
- CPU 6... OK
- CPU 13... OK
- CPU 4... OK
- CPU 15... OK
- CPU 8... OK
- CPU 11... OK
- CPU 3... OK
- CPU 0... OK
- CPU 9... OK
- CPU 7... OK
- CPU 12... OK
- CPU 5... OK
- CPU 1... OK
- CPU 10... OK
- CPU 2... OK
- CPU 14... OK
-Initializing unit: irqchip
-Initializing unit: ARM SMMU v3
-Initializing unit: ARM SMMU
-Initializing unit: PVU IOMMU
-Initializing unit: PCI
-Adding virtual PCI device 00:00.0 to cell "qemu-arm64"
-Adding virtual PCI device 00:01.0 to cell "qemu-arm64"
-Page pool usage after late setup: mem 144/992, remap 528/131072
-Activating hypervisor
-```
-
-### 1.3 jailhouse disable
-
-```shell
-sudo ./tools/jailhouse disable
-sudo rmmod jailhouse
-```
-
-## 2 编译运行armRVM
-
-```shell
-# in host
-make
-scp -P 30022 -r rvmarm.bin ubuntu@localhost:/home/ubuntu
-scp -P 30022 -r rvmarm.patch ubuntu@localhost:/home/ubuntu
-
-# in guest
-sudo mkdir -p /lib/firmware
-sudo ln -sf ~/rvmarm.bin /lib/firmware
-
-# 给jailhouse打补丁
-patch -f -p1 < ../rvmarm.patch
-```
-
-打完patch后的运行结果：
-
-```
-patching file Kbuild
-patching file configs/Makefile
-patching file driver/main.c
-patching file gen-config.sh
-patching file hypervisor/arch/x86/include/asm/jailhouse_header.h
-patching file hypervisor/include/jailhouse/header.h
-patching file include/jailhouse/cell-config.h
-patching file pyjailhouse/sysfs_parser.py
-patching file tools/jailhouse-config-create
-patching file tools/root-cell-config.c.tmpl
-```
-
-继续执行
-
-```shell
-sudo make ARCH=arm64
-sudo update-grub
-sudo reboot
-```
-
-## 3.调试armRVM
-
-### 3.调试armRVM
-
-```shell
-sudo apt-get install gdb-multiarch
-```
-
-在qemu启动参数中加入-s -S，qemu会在1234端口打开一个gdbserver，在启动时等待gdb进行连接，为了调试方便，先启用一个核
-
-```shell
-qemu-system-aarch64	-m 1G -cpu cortex-a57 -smp 1 -machine virt,gic-version=3,virtualization=on -nographic -pflash flash0.img -pflash flash1.img -drive if=none,file=ubuntu-18.04-server-cloudimg-arm64.img,id=hd0 -drive file=user-data.img,format=raw,id=cloud -device virtio-blk-device,drive=hd0 -net user,id=net,hostfwd=tcp::30022-:22 -net nic -serial mon:stdio -s -S
-```
-
-#### 启动gdb
-
-```shell
-gdb-multiarch
-target remote:1234
-set arch aarch64
-```
-
-然后输入`c`启动qemu
-
-#### gdb跟踪jailhouse.ko
-
-获取driver的段地址
-
-```shell
-cd /sys/module/jailhouse/sections
-cat .text
-cat .data
-cat .bss
-```
-
-将driver的信息传给gdb，在enter_hypervisor处打断点
-
-```gdb
-add-symbol-file ../guest/rvmarm/driver/jailhouse.ko 0xffff000001167000 -s .data 0xffff00000116d0c0 -s .bss 0xffff00000116da80
-b enter_hypervisor
-```
-
-此时可以正常调试driver
-
-#### gdb调试rust代码
-
-在main.rs的primary_init_early处打断点
-
-```
-add-symbol-file target/aarch64/debug/rvmarm
-b primary_init_early
-```
-
-此时可以进入main函数之后调试rust代码
+### 调试
+参考文档仓库
 
 本项目的相关文档在
 https://github.com/syswonder/report
-
-
