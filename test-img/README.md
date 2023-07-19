@@ -96,3 +96,4 @@ make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- KDIR=path/to/kernel -j$(nproc)
 - driver/jailhouse.ko 是加载到root cell的内核模块，提供部分管理功能，通过ioctl操作为用户态提供接口，使用hypercall调用hypervisor提供的接口。
 - hypervisor/jailhouse.bin 为jailhouse的hypervisor镜像，运行在EL2，提供虚拟化的核心功能，本项目的sysHyper主要就是实现对它的替换。
 - tools/jailhouse是root cell的用户态程序，用来调用内核模块jailhouse.ko，是面向用户的管理接口。
+- inmates 里面是一些可运行的demo

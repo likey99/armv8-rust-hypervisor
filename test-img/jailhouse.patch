@@ -7,7 +7,7 @@ index 71c232d4..8b8aff3f 100644
  	$(call filechk,version)
 
 -subdir-y := driver hypervisor configs inmates tools
-+subdir-y := configs tools
++subdir-y := hypervisor configs inmates tools
 +
 +obj-m := driver/
 
