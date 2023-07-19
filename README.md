@@ -94,7 +94,31 @@ qemu-system-aarch64 \
 -net nic \
 -net user,hostfwd=tcp::2333-:22 -s -S
 ```
-先启动qemu，然后在vscode的调试界面运行gdb-multiarch
+先启动qemu，然后按F5即可开始调试
+
+### 原版jailhouse
+在开发调试的过程中，为了方便与原版jailhouse做对比，还提供了v0.12版本的原版jailhouse运行环境：
+- test-img/host/jail-img 内核
+- test-img/guest/jail   原版jailhouse编译生成文件
+运行命令为：
+```sh
+qemu-system-aarch64 \
+-drive file=./rootfs.qcow2,discard=unmap,if=none,id=disk,format=qcow2 \
+-m 1G -serial mon:stdio -netdev user,id=net,hostfwd=tcp::23333-:22 \
+-kernel jail-img \
+-append "root=/dev/vda mem=768M"  \
+-cpu cortex-a57 -smp 16 -nographic -machine virt,gic-version=3,virtualization=on \
+-device virtio-serial-device -device virtconsole,chardev=con -chardev vc,id=con -device virtio-blk-device,drive=disk \
+-device virtio-net-device,netdev=net
+```
+在guest中：
+```sh
+cd jail
+insmod ./jailhouse.ko
+cp jailhouse.bin /lib/firmware/
+./jailhouse enable configs/qemu-arm64.cell
+```
+
 
 本项目的相关文档在
 https://github.com/syswonder/report
