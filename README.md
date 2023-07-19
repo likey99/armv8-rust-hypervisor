@@ -1,13 +1,14 @@
 # sysHyper
+![Static Badge](https://img.shields.io/badge/sysHyper-orange)
 ![GitHub](https://img.shields.io/github/license/likey99/armv8-rust-hypervisor?color=red)
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/likey99/armv8-rust-hypervisor?color=green)
 ![GitHub repo size](https://img.shields.io/github/repo-size/likey99/armv8-rust-hypervisor?color=white)
-![GitHub top language](https://img.shields.io/github/languages/top/likey99/armv8-rust-hypervisor)
+
 
 [![Contributors](https://img.shields.io/github/contributors/likey99/armv8-rust-hypervisor)](https://github.com/likey99/armv8-rust-hypervisor?color=green)
 ![GitHub commit activity (branch)](https://img.shields.io/github/commit-activity/w/likey99/armv8-rust-hypervisor?color=red)
 ![GitHub Repo stars](https://img.shields.io/github/stars/likey99/armv8-rust-hypervisor?color=yellow)
-![GitHub language count](https://img.shields.io/github/languages/count/likey99/armv8-rust-hypervisor)
+![GitHub top language](https://img.shields.io/github/languages/top/likey99/armv8-rust-hypervisor)
 
 
 
