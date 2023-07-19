@@ -1,14 +1,22 @@
 # sysHyper
 
-使用rust写的armv8 hypervisor，Porting from 
+Armv8 hypervisor based on Linux & implemented in Rust，porting from 
 >[https://github.com/rcore-os/RVM1.5]
 >[https://github.com/siemens/jailhouse]
 
-## progress
-- [x] Write the press release
-- [ ] Update the website
-- [ ] Contact the media
-
+## Progress
+- [x] arch_entry
+- [x] cpu
+- [x] logging
+- [x] exception
+- [x] gicv3
+- [ ] memory
+- [ ] ....
+## Platform
+- [x] qemu
+- [ ] imx
+- [ ] ti
+- [ ] rpi4
 ## 环境配置
 ### 安装rust
 首先安装 Rust 版本管理器 rustup 和 Rust 包管理器 cargo，为了在国内加速访问，可以设置使用中科大的镜像服务器。
