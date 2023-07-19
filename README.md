@@ -5,10 +5,10 @@
 ![GitHub repo size](https://img.shields.io/github/repo-size/likey99/armv8-rust-hypervisor?color=white)
 
 
-[![Contributors](https://img.shields.io/github/contributors/likey99/armv8-rust-hypervisor)](https://github.com/likey99/armv8-rust-hypervisor?color=green)
-![GitHub commit activity (branch)](https://img.shields.io/github/commit-activity/w/likey99/armv8-rust-hypervisor?color=red)
+[![Contributors](https://img.shields.io/github/contributors/likey99/armv8-rust-hypervisor?color=blue)](https://github.com/likey99/armv8-rust-hypervisor)
+![GitHub commit activity (branch)](https://img.shields.io/github/commit-activity/w/likey99/armv8-rust-hypervisor?color=black)
 ![GitHub Repo stars](https://img.shields.io/github/stars/likey99/armv8-rust-hypervisor?color=yellow)
-![GitHub top language](https://img.shields.io/github/languages/top/likey99/armv8-rust-hypervisor)
+![GitHub top language](https://img.shields.io/github/languages/top/likey99/armv8-rust-hypervisor?color=orange)
 
 
 
