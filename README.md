@@ -1,8 +1,22 @@
-# RVM1.5 arm移植
+# sysHyper
 
-使用rust写的armv8 hypervisor，Porting from 
-https://github.com/rcore-os/RVM1.5
+Armv8 hypervisor based on Linux & implemented in Rust，porting from 
+>[https://github.com/rcore-os/RVM1.5]
+>[https://github.com/siemens/jailhouse]
 
+## Progress
+- [x] arch_entry
+- [x] cpu
+- [x] logging
+- [x] exception
+- [x] gicv3
+- [ ] memory
+- [ ] ....
+## Platform
+- [x] qemu
+- [ ] imx
+- [ ] ti
+- [ ] rpi4
 ## 环境配置
 ### 安装rust
 首先安装 Rust 版本管理器 rustup 和 Rust 包管理器 cargo，为了在国内加速访问，可以设置使用中科大的镜像服务器。
@@ -80,7 +94,45 @@ jailhouse disable  # 关闭虚拟化
 
 
 ### 调试
-参考文档仓库
+可以使用vscode进行可视化调试，在原有qemu命令末尾加上```-s -S```
+```sh
+qemu-system-aarch64 \
+-drive file=./rootfs.qcow2,discard=unmap,if=none,id=disk,format=qcow2 \
+-device virtio-blk-device,drive=disk \
+-m 1G -serial mon:stdio  \
+-kernel Image \
+-append "root=/dev/vda mem=768M"  \
+-cpu cortex-a57 -smp 4 -nographic -machine virt,gic-version=3,virtualization=on \
+-device virtio-serial-device -device virtconsole,chardev=con \
+-chardev vc,id=con  \
+-net nic \
+-net user,hostfwd=tcp::2333-:22 -s -S
+```
+先启动qemu，然后按F5即可开始调试
+
+### 原版jailhouse
+在开发调试的过程中，为了方便与原版jailhouse做对比，还提供了v0.12版本的原版jailhouse运行环境：
+- test-img/host/jail-img 内核
+- test-img/guest/jail   原版jailhouse编译生成文件
+运行命令为：
+```sh
+qemu-system-aarch64 \
+-drive file=./rootfs.qcow2,discard=unmap,if=none,id=disk,format=qcow2 \
+-m 1G -serial mon:stdio -netdev user,id=net,hostfwd=tcp::23333-:22 \
+-kernel jail-img \
+-append "root=/dev/vda mem=768M"  \
+-cpu cortex-a57 -smp 16 -nographic -machine virt,gic-version=3,virtualization=on \
+-device virtio-serial-device -device virtconsole,chardev=con -chardev vc,id=con -device virtio-blk-device,drive=disk \
+-device virtio-net-device,netdev=net
+```
+在guest中：
+```sh
+cd jail
+insmod ./jailhouse.ko
+cp jailhouse.bin /lib/firmware/
+./jailhouse enable configs/qemu-arm64.cell
+```
+
 
 本项目的相关文档在
 https://github.com/syswonder/report
